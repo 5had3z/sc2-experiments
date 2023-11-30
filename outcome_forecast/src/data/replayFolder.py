@@ -16,6 +16,7 @@ from sc2_replay_reader import (
 )
 from torch.utils.data import Dataset
 
+from .normalize import normalizer
 from .utils import upper_bound, find_closest_indicies
 
 
@@ -44,7 +45,7 @@ class SC2Replay(Dataset):
         super().__init__()
         self.features = features
         self.db_handle = ReplayDatabase()
-        self.parser = ReplayParser(GAME_INFO_FILE)
+        self.parser = ReplayParser(GAME_INFO_FILE, normalizer)
 
         setReplayDBLoggingLevel(spdlog_lvl.warn)
 
