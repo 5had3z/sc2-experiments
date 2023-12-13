@@ -1,56 +1,58 @@
 apiVersion: batch.volcano.sh/v1alpha1
 kind: Job
 metadata:
-  name: sc2-conversion
+  name: sc2-train1
 spec:
   maxRetry: 1
   minAvailable: 1
   schedulerName: volcano
   queue: default
   tasks:
-    - replicas: 256
+    - replicas: 1
       name: serialize
       template:
         spec:
-          restartPolicy: OnFailure
+          restartPolicy: Never
           imagePullSecrets:
             - name: dkr-creds
           securityContext:
             runAsUser: 1000
+          nodeSelector:
+            nvidia.com/gpu.product: NVIDIA-GeForce-GTX-1080-Ti
           containers:
             - name: runner
-              image: mu00120825.eng.monash.edu.au:5000/sc2-serializer:latest
+              image: mu00120825.eng.monash.edu.au:5021/sc2-experiments:latest
               command:
                 [
-                  ./sc2_converter,
-                  --replays=/mnt/storage/4.9.2/,
-                  --game=/mnt/storage/SC2/4.9.2/Versions/Base74741/SC2_x64,
-                  --converter=action,
-                  --partition=/mnt/storage/492_partition/partition,
-                  --output=/mnt/storage/converted/4.9.2/db,
-                  --badfile=/mnt/storage/converted/4.9.2/badReplays/bad.txt,
+                  "python",
+                  "/app/outcome_forecast/train.py",
+                  "--workspace=/mnt/storage",
+                  "--config-file=/app/outcome_forecast/cfg/base.yml",
+                  "--epoch=100",
+                  "--workers=8",
                 ]
               env:
-                - name: SC2PATH
-                  value: /mnt/storage/SC2/4.9.2/
-                - name: CUDA_VISIBLE_DEVICES
-                  value: "-1"
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
+                - name: DATAPATH
+                  value: /mnt/storage/converted/4.9.2/
               resources:
                 requests:
-                  memory: 2.5Gi
-                  cpu: 1000m
+                  memory: 64Gi
+                  cpu: 8000m
+                  nvidia.com/gpu: 1 # 1 GPU
                 limits:
-                  memory: 6Gi
-                  cpu: 2000m
+                  memory: 100Gi
+                  cpu: 10000m
+                  nvidia.com/gpu: 1 # 1 GPU
               volumeMounts:
                 - name: storage
                   mountPath: /mnt/storage
+                - mountPath: /dev/shm
+                  name: dshm
           volumes:
             - name: storage
               nfs:
                 server: 130.194.128.238
                 path: /mnt/fast/more-users/bryce-rhys
+            - name: dshm
+              emptyDir:
+                medium: Memory

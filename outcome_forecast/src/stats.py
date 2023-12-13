@@ -38,6 +38,83 @@ def _div_no_nan(a: Tensor, b: Tensor) -> Tensor:
     return c
 
 
+@STATISTICS_REGISTRY.register_module("binary-acc")
+class BinaryAcc(Statistic):
+    @classmethod
+    def from_config(cls, cfg: ExperimentInitConfig, **extras):
+        data_cfg = get_dataset_properties(cfg)
+        if "timepoints" in data_cfg:
+            timepoints = data_cfg["timepoints"].arange()
+        else:
+            timepoints = None
+        return cls(timepoints=timepoints, **extras)
+
+    def __init__(
+        self, timepoints: Sequence[int] | None = None, auc_thresholds: int = 100
+    ) -> None:
+        """Initialize the win prediciton statistics calculator
+
+        Args:
+            timepoints (Sequence[int] | None, optional): Sequence of timepoints
+            in minutes where to sample the accuracy of the model. If None given
+            defaults to every 2min up to 30min.
+        """
+        self.timepoints = torch.arange(2, 32, 2) if timepoints is None else timepoints
+
+    def get_keys(self) -> list[str]:
+        return [f"binary_acc_{t}" for t in self.timepoints]
+
+    def __call__(
+        self, predictions: Tensor, targets: dict[str, Tensor]
+    ) -> dict[str, float]:
+        """Calculate Binary accuracy of the win prediction closest to the
+           previously specified timepoints
+
+        Args:
+            predictions (dict[str, Tensor]): Outputs of the model
+            targets (dict[str, Tensor]): Loaded data, should contain win/loss
+
+        Returns:
+            dict[str, float]: Dictionary of Binary Accuracy at each timepoint
+            (until end of replay)
+        """
+        result: dict[str, float] = {}
+        pred_sig = torch.sigmoid(predictions)
+        for idx, key in enumerate(self.get_keys()):
+            res = self.calculate_binary_accuracy(
+                pred_sig[:, idx], targets["win"], targets["valid"][:, idx]
+            )
+            result[key] = res
+        return result
+
+    @staticmethod
+    def calculate_binary_accuracy(
+        predictions: Tensor, targets: Tensor, valid_mask: Tensor
+    ) -> float:
+        """Calculate binary accuracy considering the valid mask
+
+        Args:
+            predictions (Tensor): Predicted values [0, 1]
+            targets (Tensor): Actual target values (0 or 1)
+            valid_mask (Tensor): Mask indicating whether the data is valid
+
+        Returns:
+            float: Binary accuracy
+        """
+        valid_predictions = predictions[valid_mask] > 0.5
+        valid_targets = targets[valid_mask].bool()
+
+        correct_predictions = (valid_predictions == valid_targets).sum().item()
+        total_valid_samples = valid_mask.sum().item()
+
+        if total_valid_samples > 0:
+            accuracy = correct_predictions / total_valid_samples
+        else:
+            accuracy = 0.0  # Handle the case when there are no valid samples
+
+        return accuracy
+
+
 @STATISTICS_REGISTRY.register_module("win-auc")
 class WinAUC(Statistic):
     """AUC of win prediction performance at several timepoints (min) in the game"""
@@ -62,7 +139,7 @@ class WinAUC(Statistic):
         Args:
             timepoints (Sequence[int] | None, optional): Sequence of timepoints
             in minutes where to sample the accuracy of the model. If None given
-            defauts to every 2min up to 30min.
+            defaults to every 2min up to 30min.
         """
         self.timepoints = torch.arange(2, 32, 2) if timepoints is None else timepoints
         self.auc_thresholds = self.make_thresholds(auc_thresholds)
@@ -136,7 +213,8 @@ class WinAUC(Statistic):
     def __call__(
         self, predictions: Tensor, targets: dict[str, Tensor]
     ) -> dict[str, float]:
-        """Calculate AUC of the win prediction closest to the previously specified timepoints
+        """Calculate AUC of the win prediction closest to the previously
+           specified timepoints
 
         Args:
             predictions (dict[str, Tensor]): Outputs of the model
