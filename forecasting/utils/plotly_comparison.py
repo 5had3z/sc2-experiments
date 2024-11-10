@@ -1,13 +1,15 @@
 from pathlib import Path
 
-import numpy as np
 import dash_bootstrap_components as dbc
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, callback, dcc, html
+from dash import Input, Output, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
-from konductor.metadata.database.sqlite import SQLiteDB, DEFAULT_FILENAME
-from .xgboost_tourn import d as xgboost_tourn
+from konductor.metadata.database.sqlite import DEFAULT_FILENAME, SQLiteDB
+
 from .xgboost_492 import d as xgboost_492
+from .xgboost_tourn import d as xgboost_tourn
 
 
 class TimePoint:
@@ -37,17 +39,25 @@ layout = html.Div(
     children=[
         dbc.Row(
             [
-                html.H3("Eval Accuracy Over Time"),
-                dcc.Graph(id="ts2-line-graph", selectedData={}),
+                dbc.Col(html.H3("Eval Accuracy Over Time")),
+                dbc.Col(
+                    dbc.Button(
+                        "Download CSV", id="btn-render", style={"float": "right"}
+                    )
+                ),
+                dcc.Download(id="download-csv-render"),
             ]
         ),
+        dbc.Row(dcc.Graph(id="ts2-line-graph", selectedData={})),
         dbc.Row(
             [
-                html.H3("Eval Accuracy At A Time Step"),
-                dcc.Dropdown(id="ts2-metric", options=list(get_labels().keys())),
-                dcc.Graph(id="ts2-graph", selectedData={}),
+                dbc.Col(html.H3("Eval Accuracy At A Time Step")),
+                dbc.Col(
+                    dcc.Dropdown(id="ts2-metric", options=list(get_labels().keys()))
+                ),
             ]
         ),
+        dbc.Row(dcc.Graph(id="ts2-graph", selectedData={})),
     ]
 )
 
@@ -159,3 +169,35 @@ def update_line_graph(root: str):
     )
 
     return fig
+
+
+@callback(
+    Output("download-csv-render", "data"),
+    Input("btn-render", "n_clicks"),
+    State("ts2-line-graph", "figure"),
+    prevent_initial_call=True,
+)
+def render_csv(n_clicks, figure):
+    """"""
+    if n_clicks is None:
+        raise PreventUpdate
+
+    if figure is None:
+        return ""
+
+    series: list[pd.Series] = []
+    for trace in figure["data"]:
+        if not trace["visible"] is True:
+            continue
+        series.append(pd.Series(trace["y"], index=trace["x"], name=trace["name"]))
+
+    df = pd.concat(series, axis=1)
+
+    # Convert dataframe to CSV format
+    csv_data = df.to_csv(index=True)
+
+    return {
+        "content": csv_data,
+        "filename": "sc2-outcome-results.csv",
+        "mime_type": "text/csv",
+    }
