@@ -81,8 +81,8 @@ def gather_minimap_soft_iou(workspace: Annotated[Path, typer.Option()] = Path.cw
     """Gather soft iou for each of the minimap experiments and save to analysis table"""
     update_database(workspace, get_sqlite_uri(workspace))
 
-    db_handle = sqlite3.connect(workspace / DEFAULT_SQLITE_FILENAME)
-    cur = db_handle.cursor()
+    db = sqlite3.connect(workspace / DEFAULT_SQLITE_FILENAME)
+    cur = db.cursor()
     table_name = "sequence_soft_iou"
     table_spec = {"iteration": "INTEGER"}
     for ts in _TIME_RANGE:
@@ -104,7 +104,7 @@ def gather_minimap_soft_iou(workspace: Annotated[Path, typer.Option()] = Path.cw
         results = transform_soft_iou_to_db_format(data)
         write_entry(cur, table_name, exp_run.name, results)
 
-    db_handle.commit()
+    db.commit()
 
 
 def make_sequence_2_table(cursor: sqlite3.Cursor):
@@ -127,10 +127,10 @@ def run(
 ):
     """Re-run evaluation with a model and write the results to the common database"""
     db_path = run_path.parent / DEFAULT_SQLITE_FILENAME
-    with closing(Database(get_sqlite_uri(db_path))) as db_handle:
+    with closing(Database(get_sqlite_uri(db_path))) as db:
         meta = Metadata.from_yaml(run_path / "metadata.yaml")
-        update_metadata_entry(meta, db_handle)
-        db_handle.commit()
+        update_metadata_entry(meta, db)
+        db.commit()
 
     exp_config, model, dataloader = setup_eval_model_and_dataloader(
         run_path,
@@ -153,10 +153,11 @@ def run(
 
     db_format = {_PQ_TO_DB[k]: v for k, v in meter.results().items()}
     db_format["iteration"] = meta.iteration
-    with closing(sqlite3.connect(db_path)) as db_handle:
-        cur = db_handle.cursor()
+    with closing(sqlite3.connect(db_path)) as db:
+        cur = db.cursor()
+        make_sequence_2_table(cur)
         write_entry(cur, "sequence_soft_iou_2", run_path.name, db_format)
-        db_handle.commit()
+        db.commit()
 
 
 @app.command()
