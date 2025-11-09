@@ -1,0 +1,39 @@
+criterion:
+  - args: {}
+    type: win-bce
+dataset:
+  - type: folder-dataset
+    args: {}
+    loader_type: PYTORCH
+    train_args:
+      batch_size: 64
+      drop_last: true
+      shuffle: true
+    val_args:
+      batch_size: 128
+      drop_last: true
+model:
+  - type: snapshot-prediction
+    args:
+      decoder:
+        args:
+          out_ch: 1
+        type: scalar-v1
+      scalar_enc:
+        args:
+          strategy: batch_norm
+        type: scalar-v2
+    optimizer:
+      args:
+        lr: 0.0001
+        step_interval: 1
+      scheduler:
+        args:
+          max_iter: 50
+          power: 0.9
+        type: poly
+      type: adam
+logger:
+  interval: 500
+trainer:
+  amp: {}

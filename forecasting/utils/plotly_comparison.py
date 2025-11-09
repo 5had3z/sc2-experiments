@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 import dash_bootstrap_components as dbc
@@ -6,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
-from konductor.metadata.database.sqlite import DEFAULT_FILENAME, SQLiteDB
+from konductor.metadata.database.interface import DEFAULT_SQLITE_FILENAME
 
 from .xgboost_492 import d as xgboost_492
 from .xgboost_tourn import d as xgboost_tourn
@@ -62,8 +63,12 @@ layout = html.Div(
 )
 
 
+def get_database(root: Path):
+    return sqlite3.connect(root / DEFAULT_SQLITE_FILENAME)
+
+
 def get_performance_data(root: Path, metric: str):
-    db_handle = SQLiteDB(root / DEFAULT_FILENAME)
+    db_handle = get_database(root)
     time_step = TimePoint(float(metric)).as_db_key()
     output = (
         db_handle.cursor()
@@ -75,7 +80,7 @@ def get_performance_data(root: Path, metric: str):
 
 
 def get_all_performance_data(root: Path, keys: list[str]):
-    db_handle = SQLiteDB(root / DEFAULT_FILENAME)
+    db_handle = get_database(root)
     output = (
         db_handle.cursor()
         .execute(f"SELECT hash, {','.join(keys)} FROM binary_accuracy")
@@ -86,7 +91,7 @@ def get_all_performance_data(root: Path, keys: list[str]):
 
 
 def hash_to_brief(root: Path):
-    db_handle = SQLiteDB(root / DEFAULT_FILENAME)
+    db_handle = get_database(root)
     output = db_handle.cursor().execute("SELECT hash, brief FROM metadata").fetchall()
     return {x[0]: x[1] for x in output}
 

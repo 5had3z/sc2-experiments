@@ -1,13 +1,14 @@
+import csv
+import io
+import sqlite3
 from pathlib import Path
 
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from dash import Input, Output, callback, dcc, html
-from dash.exceptions import PreventUpdate
-from konductor.metadata.database.sqlite import SQLiteDB, DEFAULT_FILENAME
 from dash.dependencies import State
-import csv
-import io
+from dash.exceptions import PreventUpdate
+from konductor.metadata.database.interface import DEFAULT_SQLITE_FILENAME
 
 layout = html.Div(
     children=[
@@ -25,7 +26,7 @@ layout = html.Div(
 
 
 def hash_to_brief(root: Path):
-    db_handle = SQLiteDB(root / DEFAULT_FILENAME)
+    db_handle = sqlite3.connect(root / DEFAULT_SQLITE_FILENAME)
     output = db_handle.cursor().execute("SELECT hash, brief FROM metadata").fetchall()
     return {x[0]: x[1] for x in output}
 
@@ -37,7 +38,6 @@ def hash_to_brief(root: Path):
     prevent_initial_call=False,
 )
 def update_game_length(eval_folder: str, root_: str):
-    print("hello...")
     if not root_:
         raise PreventUpdate()
 
@@ -45,16 +45,13 @@ def update_game_length(eval_folder: str, root_: str):
 
     hb_map = hash_to_brief(root)
     fig = go.Figure()
-    print(hb_map)
 
     for folder in filter(lambda x: x.is_dir(), root.iterdir()):
-        print(folder)
-        csv = folder / f"percent_{eval_folder}" / "game_length_results_50"
-        print(csv)
-        if not csv.exists():
+        csv_path = folder / f"percent_{eval_folder}" / "game_length_results_50"
+        if not csv_path.exists():
             continue
 
-        with open(csv, encoding="utf-8") as f:
+        with open(csv_path, encoding="utf-8") as f:
             lines = f.readlines()
 
         counts = lines[0].split(",")

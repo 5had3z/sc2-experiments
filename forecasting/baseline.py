@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import typer
-
 from src.baseline import minimap, outcome, outcome_numpy
 
 app = typer.Typer()

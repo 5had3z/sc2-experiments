@@ -3,6 +3,7 @@
 """Gather and format results from perflog files"""
 
 from pathlib import Path
+
 import pandas as pd
 import typer
 

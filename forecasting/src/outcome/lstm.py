@@ -1,6 +1,6 @@
 import torch
-from torch import nn, Tensor
 from konductor.models import MODEL_REGISTRY
+from torch import Tensor, nn
 
 
 @MODEL_REGISTRY.register_module("lstm-v1")

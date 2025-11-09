@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from konductor.init import ExperimentInitConfig
-from konductor.data import get_dataset_properties
 import torch
+from konductor.data import get_dataset_properties
+from konductor.init import ExperimentInitConfig
 from konductor.models import MODEL_REGISTRY
 from konductor.models._pytorch import TorchModelConfig
 from torch import Tensor, nn

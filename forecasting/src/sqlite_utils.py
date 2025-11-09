@@ -1,7 +1,6 @@
 from datetime import datetime
 from sqlite3 import Cursor
-from typing import Iterable, Mapping, Literal
-
+from typing import Iterable, Literal, Mapping
 
 DBTYPESTR = Literal["INT", "FLOAT", "TEXT", "TIMESTAMP"]
 DBTYPE = int | float | str | datetime

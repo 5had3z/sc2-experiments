@@ -1,8 +1,8 @@
 import functools
 import operator
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Sequence
-from copy import deepcopy
 
 import torch
 from konductor.init import ModuleInitConfig
@@ -10,7 +10,7 @@ from konductor.models import MODEL_REGISTRY
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from .common import MinimapTarget, BaseConfig
+from .common import BaseConfig, MinimapTarget
 
 
 def _make_mlp(in_ch: int, hidden_ch: int, out_ch: int | None = None):

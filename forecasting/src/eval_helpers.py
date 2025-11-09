@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
-import torch
 import pandas as pd
-from torch import nn, Tensor
-from konductor.data import Split
+import torch
 from konductor.config import ExperimentEvalConfig
-from konductor.utilities.pbar import LivePbar, IntervalPbar
+from konductor.data import Split
+from konductor.utilities.pbar import IntervalPbar, LivePbar
+from torch import Tensor, nn
 
 
 def get_pbar(total: int, desc: str = "", live: bool = True):

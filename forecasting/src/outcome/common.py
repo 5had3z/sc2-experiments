@@ -4,7 +4,7 @@ from typing import Literal
 
 import torch
 from konductor.models import MODEL_REGISTRY
-from torch import nn, Tensor
+from torch import Tensor, nn
 
 from ..utils import TimeRange
 

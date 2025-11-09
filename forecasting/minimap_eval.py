@@ -11,26 +11,25 @@ import pandas as pd
 import torch
 import typer
 from konductor.data import Split
-from konductor.metadata.database.metadata import Metadata
 from konductor.metadata.database.interface import (
-    get_sqlite_uri,
     DEFAULT_SQLITE_FILENAME,
+    get_sqlite_uri,
 )
+from konductor.metadata.database.metadata import Metadata
 from konductor.metadata.loggers import AverageMeter
 from konductor.utilities.metadata import (
-    update_database,
-    update_database_entry,
     Database,
+    update_database,
+    update_metadata_entry,
 )
 from pyarrow import parquet as pq
 from src.baseline.minimap import EVAL_BATCH_SIZE
 from src.data.base_dataset import SC2DatasetCfg
 from src.eval_helpers import get_pbar, setup_eval_model_and_dataloader
+from src.sqlite_utils import create_table, write_entry
 from src.stats import MinimapModelCfg, MinimapSoftIoU
 from src.visualisation import write_minimap_forecast_results
 from torch import Tensor
-
-from .utils.sqlite_utils import create_table, write_entry
 
 app = typer.Typer()
 
@@ -129,7 +128,7 @@ def run(
     db_path = run_path.parent / DEFAULT_SQLITE_FILENAME
     with closing(Database(get_sqlite_uri(db_path))) as db_handle:
         meta = Metadata.from_yaml(run_path / "metadata.yaml")
-        update_database_entry(meta, db_handle)
+        update_metadata_entry(meta, db_handle)
         db_handle.commit()
 
     exp_config, model, dataloader = setup_eval_model_and_dataloader(

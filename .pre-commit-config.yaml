@@ -29,6 +29,11 @@ repos:
     rev: 25.9.0
     hooks:
       - id: black
+  - repo: https://github.com/pycqa/isort
+    rev: 7.0.0
+    hooks:
+      - id: isort
+        name: isort (python)
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     # Ruff version.
     rev: "v0.14.4"

@@ -7,13 +7,14 @@ from dataclasses import dataclass
 from typing import Dict, Sequence
 
 import torch
-from torch import Tensor
 from konductor.data import get_dataset_properties
-from konductor.models import get_model_config
 from konductor.init import ExperimentInitConfig
-from konductor.metadata.base_statistic import Statistic, STATISTICS_REGISTRY
+from konductor.metadata.base_statistic import STATISTICS_REGISTRY, Statistic
+from konductor.models import get_model_config
+from torch import Tensor
 
-from .minimap.common import MinimapTarget, BaseConfig as MinimapModelCfg
+from .minimap.common import BaseConfig as MinimapModelCfg
+from .minimap.common import MinimapTarget
 
 
 @dataclass

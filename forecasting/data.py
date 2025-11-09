@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """Data preprocessing utilities"""
 
-import os
 import concurrent.futures as fut
+import os
 from pathlib import Path
 from typing import Annotated, Callable
 
-import torch
 import numpy as np
+import pandas as pd
+import torch
 import typer
 import yaml
-import pandas as pd
-from pyarrow import parquet as pq
-from konductor.data import make_from_init_config, Split
+from konductor.data import Split, make_from_init_config
 from konductor.init import DatasetInitConfig
 from konductor.registry import Registry
 from konductor.utilities.pbar import IntervalPbar, LivePbar
+from pyarrow import parquet as pq
 from sc2_serializer import (
+    ReplayDataScalarOnlyDatabase,
     set_replay_database_logger_level,
     spdlog_lvl,
-    ReplayDataScalarOnlyDatabase,
 )
 from sc2_serializer.sampler import SQLSampler
 from src.data.base_dataset import find_closest_indices
@@ -27,7 +27,7 @@ from src.utils import StrEnum
 from torch import Tensor
 
 try:
-    from ffmpegcv import VideoWriter, FFmpegWriter
+    from ffmpegcv import FFmpegWriter, VideoWriter
 except ImportError:
     VideoWriter = None
     FFmpegWriter = None

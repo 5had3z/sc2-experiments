@@ -16,12 +16,11 @@ from konductor.utilities.metadata import update_database
 from konductor.utilities.pbar import IntervalPbar, LivePbar
 from pyarrow import parquet as pq
 from src.eval_helpers import setup_eval_model_and_dataloader, write_outcome_prediction
+from src.sqlite_utils import create_table, write_entry
 from src.stats import BinaryAcc
 from src.utils import TimeRange
 from src.visualisation import metadata_to_str
 from torch import Tensor
-
-from .utils.sqlite_utils import create_table, write_entry
 
 app = typer.Typer()
 

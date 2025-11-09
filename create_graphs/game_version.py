@@ -1,10 +1,10 @@
 import sqlite3
 from contextlib import closing
 from pathlib import Path
-from packaging.version import Version
 
-import typer
 import pandas as pd
+import typer
+from packaging.version import Version
 
 app = typer.Typer()
 

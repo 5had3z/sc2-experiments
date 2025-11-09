@@ -2,8 +2,8 @@
 the structure of a folder of tournament replay packs"""
 
 import concurrent.futures as fut
-import subprocess
 import io
+import subprocess
 from multiprocessing import cpu_count
 from pathlib import Path
 

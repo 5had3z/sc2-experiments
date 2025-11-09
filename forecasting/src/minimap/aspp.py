@@ -1,7 +1,7 @@
 import torch
-from torch import nn, Tensor
-from torch.nn import functional as F
 from konductor.models import MODEL_REGISTRY
+from torch import Tensor, nn
+from torch.nn import functional as F
 
 
 class ASPPConv(nn.Sequential):

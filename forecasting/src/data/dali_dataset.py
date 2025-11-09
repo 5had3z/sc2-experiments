@@ -30,9 +30,9 @@ from sc2_serializer.sampler import ReplaySampler
 from torch import Tensor
 
 from .base_dataset import (
+    SAMPLER_REGISTRY,
     SC2FolderCfg,
     SC2SamplerCfg,
-    SAMPLER_REGISTRY,
     find_closest_indices,
 )
 

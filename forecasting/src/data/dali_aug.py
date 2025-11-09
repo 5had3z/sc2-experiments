@@ -4,8 +4,8 @@ from typing import Sequence
 
 from konductor.data.dali import DALI_AUGMENTATIONS
 from nvidia.dali import fn
-from nvidia.dali.types import DALIDataType, DALIInterpType
 from nvidia.dali.data_node import DataNode
+from nvidia.dali.types import DALIDataType, DALIInterpType
 
 
 @DALI_AUGMENTATIONS.register_module("random-flip")

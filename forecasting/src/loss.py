@@ -3,15 +3,16 @@
 from dataclasses import dataclass
 
 import torch
-from konductor.init import ExperimentInitConfig
-from konductor.models import get_model_config
 from konductor.data import get_dataset_properties
-from konductor.losses import LossConfig, REGISTRY
-from torch import nn, Tensor
+from konductor.init import ExperimentInitConfig
+from konductor.losses import REGISTRY, LossConfig
+from konductor.models import get_model_config
+from torch import Tensor, nn
 from torch.nn import functional as F
 
+from .minimap.common import BaseConfig as MinimapModelCfg
+from .minimap.common import MinimapTarget
 from .utils import get_valid_sequence_mask
-from .minimap.common import MinimapTarget, BaseConfig as MinimapModelCfg
 
 
 class WinBCE(nn.Module):

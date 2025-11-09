@@ -1,3 +1,5 @@
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Annotated
 
@@ -5,11 +7,15 @@ import numpy as np
 import typer
 import yaml
 from konductor.data import DatasetInitConfig, Split, make_from_init_config
-from konductor.metadata.database.sqlite import DEFAULT_FILENAME, Metadata, SQLiteDB
+from konductor.data.dali import DaliLoaderConfig
+from konductor.metadata.database import Database, Metadata, get_sqlite_uri
+from konductor.metadata.database.interface import DEFAULT_SQLITE_FILENAME
+from konductor.utilities.metadata import update_metadata_entry
 from konductor.utilities.pbar import IntervalPbar
 from torch import Tensor
 
 from ..data.base_dataset import SC2DatasetCfg
+from ..sqlite_utils import write_entry
 from ..stats import MinimapSoftIoU, MinimapTarget
 
 app = typer.Typer()
@@ -63,9 +69,10 @@ def evaluate_trivial_prediction(dataset: SC2DatasetCfg) -> dict[str, float]:
         timepoints=list(range(3, 10, 3)),
         should_sigmoid=False,
     )
+    assert isinstance(dataset.val_loader, DaliLoaderConfig)
     dataset.val_loader.batch_size = EVAL_BATCH_SIZE
     dataset.val_loader.workers = 8
-    dataset.val_loader.dali_py_workers = 6
+    dataset.val_loader.py_workers = 6
     dataloader = dataset.get_dataloader(Split.VAL)
     results: dict[str, list[float]] = {k: [] for k in evaluator.get_keys()}
     with IntervalPbar(total=len(dataloader), fraction=0.01) as pbar:
@@ -97,15 +104,20 @@ def main(
 ):
     """Basic minimap baseline where the previous frame is used to predict the next frame"""
     dataset = get_dataset(config)
+    assert isinstance(dataset, SC2DatasetCfg)
     results = evaluate_trivial_prediction(dataset)
     results["iteration"] = 0  # Add dummy iteration
 
     print(f"Writing results: {results}")
+    exp_hash = "baseline"
 
-    results_db = SQLiteDB(workspace / DEFAULT_FILENAME)
-    dummy_hash = "baseline_method"
-    results_db.update_metadata(
-        dummy_hash, Metadata(Path(), brief="current frame predicts next")
-    )
-    results_db.write("sequence_soft_iou_2", dummy_hash, results)
-    results_db.commit()
+    with closing(Database(get_sqlite_uri(workspace))) as db:
+        update_metadata_entry(
+            Metadata(hash=exp_hash, brief="current frame predicts next"), db
+        )
+        db.commit()
+
+    with closing(sqlite3.connect(workspace / DEFAULT_SQLITE_FILENAME)) as db:
+        cursor = db.cursor()
+        write_entry(cursor, "sequence_soft_iou_2", exp_hash, results)
+        db.commit()

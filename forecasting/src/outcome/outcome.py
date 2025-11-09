@@ -2,11 +2,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import torch
-from torch import nn, Tensor
 from konductor.data import get_dataset_properties
 from konductor.init import ModuleInitConfig
 from konductor.models import MODEL_REGISTRY, ExperimentInitConfig
 from konductor.models._pytorch import TorchModelConfig
+from torch import Tensor, nn
 
 from .transformer import TransformerDecoderV1
 

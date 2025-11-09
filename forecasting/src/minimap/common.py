@@ -2,7 +2,6 @@ import enum
 from dataclasses import dataclass
 from typing import Any
 
-
 from konductor.data import get_dataset_properties
 from konductor.init import ModuleInitConfig
 from konductor.models import ExperimentInitConfig

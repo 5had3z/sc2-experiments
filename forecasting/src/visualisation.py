@@ -6,9 +6,10 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import functional as F
+
+from .eval_helpers import metadata_to_str
 from .minimap.common import MinimapTarget
 from .stats import MinimapSoftIoU
-from .eval_helpers import metadata_to_str
 
 
 def create_score_frame(pred: Tensor, target: Tensor) -> np.ndarray:

@@ -9,13 +9,13 @@ import numpy as np
 import typer
 import yaml
 from konductor.utilities.pbar import IntervalPbar, LivePbar
+from sc2_serializer.sampler import SQLSampler
 from sklearn import preprocessing, svm
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold, cross_val_score
 from sklearn.neural_network import MLPClassifier
 from torch.utils.data import DataLoader
 from typing_extensions import Annotated
-from sc2_serializer.sampler import SQLSampler
 
 from ..data.torch_dataset import SC2ReplayOutcome, Split
 from ..utils import TimeRange

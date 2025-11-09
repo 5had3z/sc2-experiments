@@ -1,7 +1,7 @@
 from pathlib import Path
 
-import pandas as pd
 import dash_bootstrap_components as dbc
+import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, callback, dcc, html
 from dash.exceptions import PreventUpdate
@@ -27,6 +27,12 @@ EXPERIMENTS: list[Metadata] = []
 
 def get_experiment_by_brief(brief: str):
     return next(filter(lambda x: x.brief == brief, EXPERIMENTS))
+
+
+def get_experiment_data(root: str, brief: str) -> pd.DataFrame:
+    exp_meta = get_experiment_by_brief(brief)
+    data = pd.read_csv(Path(root) / exp_meta.hash / "outcome_prediction.csv")
+    return data
 
 
 @callback(
@@ -56,10 +62,7 @@ def update_replays(root: str, run_brief: str):
     if not root or not run_brief:
         raise PreventUpdate()
 
-    exp_meta = get_experiment_by_brief(run_brief)
-
-    data = pd.read_csv(exp_meta.filepath.parent / "outcome_prediction.csv")
-
+    data = get_experiment_data(root, run_brief)
     return list(data["replay"].unique())
 
 
@@ -73,9 +76,7 @@ def update_game_length(root: str, run_brief: str, replay_hash: str):
     if not all((root, run_brief, replay_hash)):
         raise PreventUpdate
 
-    exp_meta = get_experiment_by_brief(run_brief)
-
-    data = pd.read_csv(exp_meta.filepath.parent / "outcome_prediction.csv")
+    data = get_experiment_data(root, run_brief)
     col_to_rm = ["replay"]
     if "Unnamed: 0" in data.columns:
         col_to_rm.append("Unnamed: 0")
