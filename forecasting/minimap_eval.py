@@ -122,6 +122,7 @@ def make_sequence_2_table(cursor: sqlite3.Cursor):
 def run(
     run_path: Annotated[Path, typer.Option()],
     workers: Annotated[int, typer.Option()] = 4,
+    py_workers: Annotated[int, typer.Option()] = 4,
     live_pbar: Annotated[bool, typer.Option()] = False,
 ):
     """Re-run evaluation with a model and write the results to the common database"""
@@ -132,7 +133,12 @@ def run(
         db_handle.commit()
 
     exp_config, model, dataloader = setup_eval_model_and_dataloader(
-        run_path, split=Split.VAL, workers=workers, batch_size=EVAL_BATCH_SIZE
+        run_path,
+        split=Split.VAL,
+        workers=workers,
+        batch_size=EVAL_BATCH_SIZE,
+        py_workers=py_workers,
+        prefetch=4,
     )
     metric = MinimapSoftIoU.from_config(exp_config.init)
     meter = AverageMeter()
