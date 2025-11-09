@@ -5,9 +5,8 @@ from pathlib import Path
 import torch
 import pandas as pd
 from torch import nn, Tensor
-from konductor.data import Split, get_dataset_config
-from konductor.init import ExperimentInitConfig
-from konductor.models import get_model
+from konductor.data import Split
+from konductor.config import ExperimentEvalConfig
 from konductor.utilities.pbar import LivePbar, IntervalPbar
 
 
@@ -23,10 +22,10 @@ def metadata_to_str(metadata: Tensor) -> list[str]:
 
 
 def load_model_checkpoint(
-    exp_config: ExperimentInitConfig, filename: str = "latest.pt"
+    exp_config: ExperimentEvalConfig, filename: str = "latest.pt"
 ):
     """Load model from checkpoint in experiment directory"""
-    model: nn.Module = get_model(exp_config)
+    model: nn.Module = exp_config.model[0].get_instance()
     ckpt = torch.load(exp_config.exp_path / filename)["model"]
     model.load_state_dict(ckpt)
     model.eval()
@@ -35,39 +34,32 @@ def load_model_checkpoint(
     return model
 
 
-def get_dataloader_with_metadata(
-    exp_config: ExperimentInitConfig, split: Split = Split.VAL
-):
+def add_metadata_to_dataset_config(exp_config: ExperimentEvalConfig):
     """Get dataloader that also returns metadata (unique id associated with sample)"""
-    dataset_cfg = get_dataset_config(exp_config)
+    dataset_cfg = exp_config.dataset[0]
     if hasattr(dataset_cfg, "keys"):
         if "metadata" not in dataset_cfg.keys:
             dataset_cfg.keys.append("metadata")
     else:
         dataset_cfg.metadata = True  # Need to add metadata list of keys to yield
-    return dataset_cfg.get_dataloader(split)
 
 
 def setup_eval_model_and_dataloader(
-    run_path: Path,
-    split: Split = Split.VAL,
-    batch_size: int | None = None,
-    workers: int | None = None,
+    run_path: Path, workers: int, batch_size: int | None = None, **loader_kwargs
 ):
     """Read experiment config from run path and create model and dataloader"""
-    exp_config = ExperimentInitConfig.from_run(run_path)
+    exp_config = ExperimentEvalConfig.from_run(run_path)
 
     # AMP isn't enabled during eval
-    if "amp" in exp_config.trainer:
-        del exp_config.trainer["amp"]
-
-    if batch_size is not None:
-        exp_config.set_batch_size(batch_size, split)
-    if workers is not None:
-        exp_config.set_workers(workers)
+    if "amp" in exp_config.init.trainer:
+        del exp_config.init.trainer["amp"]
 
     model = load_model_checkpoint(exp_config)
-    dataloader = get_dataloader_with_metadata(exp_config, split)
+    add_metadata_to_dataset_config(exp_config)
+    exp_config.set_workers_and_prefetch(workers, **loader_kwargs)
+    if batch_size is not None:
+        exp_config.set_batch_size(batch_size, Split.VAL)
+    dataloader = exp_config.get_dataloader(Split.VAL)
 
     return exp_config, model, dataloader
 

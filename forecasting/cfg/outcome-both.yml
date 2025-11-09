@@ -2,17 +2,14 @@ dataset:
   - type: dali-folder
     args:
       features: [win, valid, minimaps, scalars]
-    val_loader:
-      type: DALI
-      args:
-        batch_size: 128
-        drop_last: true
-    train_loader:
-      type: DALI
-      args:
-        shuffle: true
-        batch_size: 64
-        drop_last: true
+    loader_type: DALI
+    val_args:
+      batch_size: 128
+      drop_last: true
+    train_args:
+      shuffle: true
+      batch_size: 64
+      drop_last: true
 criterion:
   - type: win-bce
     args: {}

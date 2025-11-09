@@ -2,6 +2,7 @@
 """Tool for gathering and formatting minimap results"""
 import itertools
 import random
+import sqlite3
 from contextlib import closing
 from pathlib import Path
 from typing import Annotated
@@ -9,12 +10,18 @@ from typing import Annotated
 import pandas as pd
 import torch
 import typer
-from konductor.data import Split, get_dataset_config, get_dataset_properties
+from konductor.data import Split
 from konductor.metadata.database.metadata import Metadata
-from konductor.metadata.database.sqlite import DEFAULT_FILENAME, SQLiteDB
+from konductor.metadata.database.interface import (
+    get_sqlite_uri,
+    DEFAULT_SQLITE_FILENAME,
+)
 from konductor.metadata.loggers import AverageMeter
-from konductor.models import get_model_config
-from konductor.utilities.metadata import update_database
+from konductor.utilities.metadata import (
+    update_database,
+    update_database_entry,
+    Database,
+)
 from pyarrow import parquet as pq
 from src.baseline.minimap import EVAL_BATCH_SIZE
 from src.data.base_dataset import SC2DatasetCfg
@@ -22,6 +29,8 @@ from src.eval_helpers import get_pbar, setup_eval_model_and_dataloader
 from src.stats import MinimapModelCfg, MinimapSoftIoU
 from src.visualisation import write_minimap_forecast_results
 from torch import Tensor
+
+from .utils.sqlite_utils import create_table, write_entry
 
 app = typer.Typer()
 
@@ -71,11 +80,10 @@ def transform_soft_iou_to_db_format(data: pd.DataFrame) -> dict[str, float | int
 @app.command()
 def gather_minimap_soft_iou(workspace: Annotated[Path, typer.Option()] = Path.cwd()):
     """Gather soft iou for each of the minimap experiments and save to analysis table"""
-    update_database(
-        workspace, "sqlite", f'{{"path": "{workspace / DEFAULT_FILENAME}"}}'
-    )
+    update_database(workspace, get_sqlite_uri(workspace))
 
-    db_handle = SQLiteDB(workspace / DEFAULT_FILENAME)
+    db_handle = sqlite3.connect(workspace / DEFAULT_SQLITE_FILENAME)
+    cur = db_handle.cursor()
     table_name = "sequence_soft_iou"
     table_spec = {"iteration": "INTEGER"}
     for ts in _TIME_RANGE:
@@ -87,7 +95,7 @@ def gather_minimap_soft_iou(workspace: Annotated[Path, typer.Option()] = Path.cw
                 f"motion_enemy_{ts}": "FLOAT",
             }
         )
-    db_handle.create_table(table_name, table_spec)
+    create_table(cur, table_name, table_spec)
 
     for exp_run in filter(lambda x: x.is_dir(), workspace.iterdir()):
         parquet_filename = exp_run / "val_minimap-soft-iou.parquet"
@@ -95,19 +103,19 @@ def gather_minimap_soft_iou(workspace: Annotated[Path, typer.Option()] = Path.cw
             continue
         data: pd.DataFrame = pq.read_table(parquet_filename).to_pandas()
         results = transform_soft_iou_to_db_format(data)
-        db_handle.write(table_name, exp_run.name, results)
+        write_entry(cur, table_name, exp_run.name, results)
 
     db_handle.commit()
 
 
-def make_sequence_2_table(db_handle: SQLiteDB):
+def make_sequence_2_table(cursor: sqlite3.Cursor):
     """Make sequence2 table if not already exists"""
     table_spec = {"iteration": "INTEGER"}
     for prefix, name, ts in itertools.product(
         ["", "motion_", "diff_"], ["self", "enemy"], _TIME_RANGE
     ):
         table_spec[f"{prefix}{name}_{ts}"] = "FLOAT"
-    db_handle.create_table("sequence_soft_iou_2", table_spec)
+    create_table(cursor, "sequence_soft_iou_2", table_spec)
 
 
 @app.command()
@@ -118,15 +126,16 @@ def run(
     live_pbar: Annotated[bool, typer.Option()] = False,
 ):
     """Re-run evaluation with a model and write the results to the common database"""
-    with closing(SQLiteDB(run_path.parent / DEFAULT_FILENAME)) as db_handle:
+    db_path = run_path.parent / DEFAULT_SQLITE_FILENAME
+    with closing(Database(get_sqlite_uri(db_path))) as db_handle:
         meta = Metadata.from_yaml(run_path / "metadata.yaml")
-        db_handle.update_metadata(run_path.name, meta)
+        update_database_entry(meta, db_handle)
         db_handle.commit()
 
     exp_config, model, dataloader = setup_eval_model_and_dataloader(
         run_path, split=Split.VAL, workers=workers, batch_size=EVAL_BATCH_SIZE
     )
-    metric = MinimapSoftIoU.from_config(exp_config)
+    metric = MinimapSoftIoU.from_config(exp_config.init)
     meter = AverageMeter()
 
     with get_pbar(total=len(dataloader), desc="Evaluating", live=live_pbar) as pbar:
@@ -139,8 +148,9 @@ def run(
 
     db_format = {_PQ_TO_DB[k]: v for k, v in meter.results().items()}
     db_format["iteration"] = meta.iteration
-    with closing(SQLiteDB(run_path.parent / DEFAULT_FILENAME)) as db_handle:
-        db_handle.write("sequence_soft_iou_2", run_path.name, db_format)
+    with closing(sqlite3.connect(db_path)) as db_handle:
+        cur = db_handle.cursor()
+        write_entry(cur, "sequence_soft_iou_2", run_path.name, db_format)
         db_handle.commit()
 
 
@@ -151,13 +161,12 @@ def run_all(
     live_pbar: Annotated[bool, typer.Option()] = False,
 ):
     """Re-run evaluation over all experiments in workspace and write to database"""
-    with closing(SQLiteDB(workspace / DEFAULT_FILENAME)) as db_handle:
-        make_sequence_2_table(db_handle)
+    with closing(sqlite3.connect(workspace / DEFAULT_SQLITE_FILENAME)) as db_handle:
+        cur = db_handle.cursor()
+        make_sequence_2_table(cur)
         existing = {
             res[0]
-            for res in db_handle.cursor()
-            .execute("SELECT hash FROM sequence_soft_iou_2;")
-            .fetchall()
+            for res in cur.execute("SELECT hash FROM sequence_soft_iou_2;").fetchall()
         }
 
     def run_filt(run_dir: Path):
@@ -189,12 +198,14 @@ def visualise_minimap_forecast(
         run_path, split=split, workers=workers, batch_size=batch_size
     )
 
-    model_cfg: MinimapModelCfg = get_model_config(exp_config)
-    data_cfg: SC2DatasetCfg = get_dataset_config(exp_config)
+    model_cfg = exp_config.model[0]
+    assert isinstance(model_cfg, MinimapModelCfg)
+    data_cfg = exp_config.dataset[0]
+    assert isinstance(data_cfg, SC2DatasetCfg)
     assert data_cfg.minimap_ch_names is not None
 
     if model_cfg.future_len > 1:
-        step_sec = get_dataset_properties(exp_config)["step_sec"]
+        step_sec = data_cfg.properties["step_sec"]
         timepoints = [float(i * step_sec) for i in range(1, model_cfg.future_len + 1)]
     else:
         timepoints = None

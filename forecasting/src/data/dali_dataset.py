@@ -392,7 +392,7 @@ class DaliReplayClipConfig(SC2SamplerCfg):
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, idx: int = 0):
         if "amp" in config.trainer:
-            config.data[idx].dataset.args["fp16_out"] = True
+            config.dataset[idx].args["fp16_out"] = True
         return super().from_config(config, idx)
 
     def __post_init__(self):

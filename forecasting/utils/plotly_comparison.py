@@ -187,7 +187,7 @@ def render_csv(n_clicks, figure):
 
     series: list[pd.Series] = []
     for trace in figure["data"]:
-        if not trace["visible"] is True:
+        if trace["visible"] is False:
             continue
         series.append(pd.Series(trace["y"], index=trace["x"], name=trace["name"]))
 

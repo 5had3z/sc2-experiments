@@ -43,7 +43,7 @@
                 "--pbar",
                 "--brief=testing outcome forecast",
                 "--workers=8",
-                "--dali-py-workers=6"
+                "--py-workers=8"
             ],
             "envFile": "${workspaceFolder}/.env"
         },

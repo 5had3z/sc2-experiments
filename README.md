@@ -1,11 +1,12 @@
 # sc2-experiments
+
 Repo contains ML experiments using [sc2-serializer](https://github.com/5had3z/sc2-serializer) datasets. Most experimental setups only take a few hours to run for convergence, and were trained on GTX 1080 or RTX 3090 depending on VRAM requirements for the model. Model weights, configuration and training logs from the reported experiments are provided on [Google Drive](https://drive.google.com/drive/u/1/folders/1zlDo88efK6rg-PYbslFTBF-H_TJvJ-Nr). However, some of the configurations are from an older version of the codebase so some of the keyword arguments have changed.
 
 ## Basic Repo Usage
 
 ### Training
 
-The [train.py](./forecasting/train.py) is the main entrypoint for training all the different task and model variations. Set the environemnt variable `DATAPATH` to point to where the datasets are located. This repo is compatible with `torchrun` for distributed data-parallel training.  An example training (and evaluation) launch command is included in [launch.json](./.vscode/launch.json).
+The [train.py](./forecasting/train.py) is the main entrypoint for training all the different task and model variations. Set the environment variable `DATAPATH` to point to where the datasets are located. This repo is compatible with `torchrun` for distributed data-parallel training.  An example training (and evaluation) launch command is included in [launch.json](./.vscode/launch.json).
 
 ### Evaluating
 
@@ -21,9 +22,10 @@ Reading a replay with thousands of data points to only sample 20 is a bit ineffi
 
 ### Preprocessing
 
-Minimap forecasting requires finding valid subsequences of data with a regular time interval. This can be done live, by randomly sampling and validating, however there's no guarantee that you're going to spend a long time finding a good subsequence. Another preprocessing script command `./forecasting/data.py write-valid-stride-files` finds all the valid subsequences of a replay and records them. Then we can randomly sample from this set for dataloading during training, rather than sampling and testing. You can then enable `precalculated_clips: true` in your `dali-replay-clip` dataset configuration. Its also prefered to set `yields_batch: true` for faster dataloading, technically the batch is now not IID, but with and without yielding a batch has no accuracy impact.
+Minimap forecasting requires finding valid subsequences of data with a regular time interval. This can be done live, by randomly sampling and validating, however there's no guarantee that you're going to spend a long time finding a good subsequence. Another preprocessing script command `./forecasting/data.py write-valid-stride-files` finds all the valid subsequences of a replay and records them. Then we can randomly sample from this set for dataloading during training, rather than sampling and testing. You can then enable `precalculated_clips: true` in your `dali-replay-clip` dataset configuration. Its also preferred to set `yields_batch: true` for faster dataloading, technically the batch is now not IID, but with and without yielding a batch has no accuracy impact.
 
 ### Git hooks
+
 The CI will run several checks on the new code pushed to the repository. These checks can also be run locally without waiting for the CI by following the steps below:
 
 1. [install pre-commit](https://pre-commit.com/#install),

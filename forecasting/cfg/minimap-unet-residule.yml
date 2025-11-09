@@ -19,29 +19,26 @@ dataset:
             - parse_success = 1
             - number_game_step > 1024
             - playerAPM > 100
-    val_loader:
-      type: DALI
-      args:
-        batch_size: 64
-        drop_last: true
-    train_loader:
-      type: DALI
-      args:
-        shuffle: true
-        batch_size: 64
-        drop_last: true
-        augmentations:
-          - type: permute-dims # FCHW -> FHWC
-            args:
-              dst: [0, 2, 3, 1]
-          - type: random-flip
-            args: {}
-          - type: random-rotate
-            args:
-              angle_deg: 180
-          - type: permute-dims # FHWC -> FCHW
-            args:
-              dst: [0, 3, 1, 2]
+    loader_type: DALI
+    val_args:
+      batch_size: 64
+      drop_last: false
+    train_args:
+      shuffle: true
+      batch_size: 64
+      drop_last: true
+      augmentations:
+        - type: permute-dims # FCHW -> FHWC
+          args:
+            dst: [0, 2, 3, 1]
+        - type: random-flip
+          args: {}
+        - type: random-rotate
+          args:
+            angle_deg: 180
+        - type: permute-dims # FHWC -> FCHW
+          args:
+            dst: [0, 3, 1, 2]
 criterion:
   - type: minimap-bce
     args:

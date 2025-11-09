@@ -59,7 +59,7 @@ class BinaryAcc(Statistic):
         should_sigmoid: bool = True,
         keep_batch: bool = False,
     ) -> None:
-        """Initialize the win prediciton statistics calculator
+        """Initialize the win prediction statistics calculator
 
         Args:
             timepoints (Sequence[int] | None, optional): Sequence of timepoints
@@ -174,7 +174,7 @@ class WinAUC(Statistic):
         timepoints: Sequence[int] | None = None,
         auc_thresholds: int = 100,
     ) -> None:
-        """Initialize the win prediciton statistics calculator
+        """Initialize the win prediction statistics calculator
 
         Args:
             timepoints (Sequence[int] | None, optional): Sequence of timepoints

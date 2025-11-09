@@ -8,23 +8,20 @@ import numpy as np
 import pandas as pd
 import torch
 import typer
-from konductor.data import Split, get_dataset_properties
+from konductor.data import Split
 from konductor.metadata.database import Metadata
-from konductor.metadata.database.sqlite import DEFAULT_FILENAME, SQLiteDB
+from konductor.metadata.database.interface import DEFAULT_SQLITE_FILENAME
 from konductor.metadata.loggers import ParquetLogger
 from konductor.utilities.metadata import update_database
 from konductor.utilities.pbar import IntervalPbar, LivePbar
 from pyarrow import parquet as pq
-from src.eval_helpers import (
-    get_dataloader_with_metadata,
-    setup_eval_model_and_dataloader,
-    write_outcome_prediction,
-)
+from src.eval_helpers import setup_eval_model_and_dataloader, write_outcome_prediction
 from src.stats import BinaryAcc
 from src.utils import TimeRange
 from src.visualisation import metadata_to_str
 from torch import Tensor
-from train import apply_dali_pipe_kwargs
+
+from .utils.sqlite_utils import create_table, write_entry
 
 app = typer.Typer()
 
@@ -65,15 +62,17 @@ def transform_outcome_to_db_format(
 def gather_ml_binary_accuracy(workspace: Annotated[Path, typer.Option()] = Path.cwd()):
     """Add Binary Accuracy to database table (and update metadata at the same time)"""
     update_database(
-        workspace, "sqlite", f'{{"path": "{workspace / DEFAULT_FILENAME}"}}'
+        workspace, f"sqlite:////{workspace.resolve()/DEFAULT_SQLITE_FILENAME}"
     )
 
-    db_handle = SQLiteDB(workspace / DEFAULT_FILENAME)
+    db_handle = sqlite3.connect(workspace / DEFAULT_SQLITE_FILENAME)
+    cursor = db_handle.cursor()
+
     time_points = [TimePoint(t) for t in np.arange(0, 20, 0.5)]
     table_name = "binary_accuracy"
     db_format = {"iteration": "INTEGER"}
     db_format.update({t.as_db_key(): "FLOAT" for t in time_points})
-    db_handle.create_table(table_name, db_format)
+    create_table(cursor, table_name, db_format)
 
     for exp_run in filter(lambda x: x.is_dir(), workspace.iterdir()):
         parquet_filename = exp_run / "val_binary-acc.parquet"
@@ -81,10 +80,11 @@ def gather_ml_binary_accuracy(workspace: Annotated[Path, typer.Option()] = Path.
             continue
         data: pd.DataFrame = pq.read_table(parquet_filename).to_pandas()
         results = transform_outcome_to_db_format(data, time_points)
-        db_handle.write(table_name, exp_run.name, results)
+        write_entry(cursor, table_name, exp_run.name, results)
 
+    cursor.close()
     db_handle.commit()
-    db_handle.con.close()
+    db_handle.close()
 
 
 # -------------------------------------------------------------------
@@ -98,23 +98,26 @@ def evaluate(
     outdir: Annotated[str, typer.Option()],
     batch_size: Annotated[Optional[int], typer.Option()] = None,
     workers: Annotated[int, typer.Option()] = 4,
-    dali_py_workers: Annotated[int, typer.Option()] = 2,
-    dali_external_prefetch: Annotated[int, typer.Option()] = 2,
-    dali_pipe_prefetch: Annotated[int, typer.Option()] = 2,
+    py_workers: Annotated[int, typer.Option()] = 2,
+    source_prefetch: Annotated[int, typer.Option()] = 2,
+    pipe_prefetch: Annotated[int, typer.Option()] = 2,
 ):
     """Run validation and save results new subdirectory"""
     exp_config, model, dataloader = setup_eval_model_and_dataloader(
-        run_path, batch_size=batch_size
+        run_path,
+        workers,
+        batch_size,
+        py_workers=py_workers,
+        source_prefetch=source_prefetch,
+        prefetch=pipe_prefetch,
     )
 
-    exp_config.set_workers(workers)
+    if batch_size is None:
+        batch_size_ = exp_config.get_batch_size(Split.VAL)
+        assert isinstance(batch_size_, int)
+        batch_size = batch_size_
 
-    if exp_config.data[0].train_loader.type == "DALI":
-        apply_dali_pipe_kwargs(
-            exp_config, dali_py_workers, dali_pipe_prefetch, dali_external_prefetch
-        )
-
-    binary_acc = BinaryAcc.from_config(exp_config)
+    binary_acc = BinaryAcc.from_config(exp_config.init)
     binary_acc.keep_batch = True
 
     outpath = run_path / outdir
@@ -131,7 +134,7 @@ def evaluate(
                 sample = sample[0]
             preds = model(sample)
             results = binary_acc(preds, sample)
-            for i in range(exp_config.get_batch_size(Split.VAL)):
+            for i in range(batch_size):
                 results_ = {}
                 for j, k in enumerate(results.keys()):
                     valid = sample["valid"][i][j]
@@ -156,15 +159,11 @@ def evaluate_percent(
     """Run validation and save results new subdirectory"""
     conn = sqlite3.connect(str(database))
     cursor = conn.cursor()
-
-    exp_config, model, _ = setup_eval_model_and_dataloader(
-        run_path, batch_size=batch_size, workers=workers
+    exp_config, model, dataloader = setup_eval_model_and_dataloader(
+        run_path, workers, batch_size, prefetch=4, py_workers=3, source_prefetch=3
     )
-    if exp_config.data[0].train_loader.type == "DALI":
-        apply_dali_pipe_kwargs(exp_config, 4, 3, 3)
-    dataloader = get_dataloader_with_metadata(exp_config)
 
-    binary_acc = BinaryAcc.from_config(exp_config)
+    binary_acc = BinaryAcc.from_config(exp_config.init)
     binary_acc.keep_batch = True
 
     outpath = run_path / outdir
@@ -244,7 +243,7 @@ def evaluate_all(
     dali_external_prefetch: Annotated[int, typer.Option()] = 2,
     dali_pipe_prefetch: Annotated[int, typer.Option()] = 2,
 ):
-    """Run validaiton and save to a subdirectory"""
+    """Run validation and save to a subdirectory"""
 
     def is_valid_run(path: Path):
         return path.is_dir() and (path / "latest.pt").exists()
@@ -308,9 +307,9 @@ def evaluate_all_percent(
     database: Annotated[Path, typer.Option()],
     num_buckets: Annotated[int, typer.Option()] = 50,
     batch_size: Annotated[Optional[int], typer.Option()] = None,
-    workers: Annotated[Optional[int], typer.Option()] = None,
+    workers: Annotated[int, typer.Option()] = 8,
 ):
-    """Run validaiton and save to a subdirectory"""
+    """Run validation and save to a subdirectory"""
 
     def is_valid_run(path: Path):
         return path.is_dir() and (path / "latest.pt").exists()
@@ -341,8 +340,7 @@ def single_replay_analysis(
         run_path, split=split, workers=workers, batch_size=batch_size
     )
 
-    dataset_props = get_dataset_properties(exp_config)
-    timepoints: TimeRange = dataset_props["timepoints"]
+    timepoints: TimeRange = exp_config.dataset[0].properties["timepoints"]
 
     results = pd.DataFrame(
         index=pd.RangeIndex(0, n_samples),

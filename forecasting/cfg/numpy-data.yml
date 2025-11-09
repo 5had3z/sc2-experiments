@@ -17,11 +17,6 @@ args:
         - read_success = 1
         - parse_success = 1
         - playerAPM > 30
-val_loader:
-  type: PYTORCH_V1
-  args:
-    batch_size: 1
-train_loader:
-  type: PYTORCH_V1
-  args:
-    batch_size: 1
+loader_type: DALI
+loader_args:
+  batch_size: 1

@@ -7,7 +7,7 @@ from zipfile import BadZipFile
 import numpy as np
 import torch
 from konductor.data import DATASET_REGISTRY, Split
-from konductor.data._pytorch.dataloader import DataloaderV1Config
+from konductor.data._pytorch.dataloader import TorchLoaderConfig
 from sc2_serializer import Result, get_database_and_parser
 from sc2_serializer.sampler import ReplaySampler
 from torch.utils.data import Dataset
@@ -141,8 +141,8 @@ class SC2ReplayOutcome(SC2ReplayBase):
 class SC2ReplayBaseConfig(SC2SamplerCfg):
     """Pytorch Variant of SC2 Dataloader"""
 
-    train_loader: DataloaderV1Config
-    val_loader: DataloaderV1Config
+    train_loader: TorchLoaderConfig
+    val_loader: TorchLoaderConfig
 
     def get_cls(self):
         raise NotImplementedError
@@ -220,8 +220,8 @@ class FolderDatasetConfig(SC2FolderCfg):
     """Configuration for pre-processed numpy file dataset"""
 
     # Dataloader type we want to use
-    train_loader: DataloaderV1Config
-    val_loader: DataloaderV1Config
+    train_loader: TorchLoaderConfig
+    val_loader: TorchLoaderConfig
 
     def get_dataloader(self, split: Split) -> Any:
         dataset = FolderDataset(self.basepath, split)

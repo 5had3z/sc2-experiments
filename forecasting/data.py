@@ -290,7 +290,7 @@ def run_valid_stride_creation(
 
 
 def get_subsequences(total_len: int, n_sequences: int):
-    """Get all the subseqence ranges for n_sequences"""
+    """Get all the subsequence ranges for n_sequences"""
     return [get_partition_range(total_len, i, n_sequences) for i in range(n_sequences)]
 
 
@@ -310,6 +310,7 @@ def create_valid_stride(
     stride = int(step_sec * 22.4)
     sampler = sampler_from_config(config)
     total_len = len(sampler)
+    assert output.is_dir(), "Output should be folder"
     output /= f"replay_mask_{stride}_{sequence_len}.parquet"
     if workers > 1:
         with fut.ProcessPoolExecutor(workers) as ctx:
